@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Legal Metrology Compliance Checker — Frontend
 
 A standalone static frontend for the AI-based Legal Metrology Packaged
@@ -75,3 +76,6 @@ stamped compliant/non-compliant seal, a typewriter-style monospace for
 data fields, and a slab serif for headings. Colors and type are all
 defined as CSS variables at the top of `assets/css/style.css` if you
 want to re-theme it.
+=======
+# Legal-Metrology-Compliance-Checker
+>>>>>>> 4ae02abb02c69f70c522219964beb16a9985e6ad

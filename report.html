@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compliance Report — Legal Metrology Compliance Checker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+  .step-flag{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--brass); text-transform:uppercase; letter-spacing:0.07em; margin-bottom:14px; display:block;}
+  .report-actions{display:flex; gap:10px; margin-bottom:22px; flex-wrap:wrap;}
+  .stamp-corner{float:right; margin:-6px -6px 10px 14px;}
+</style>
+</head>
+<body>
+
+<main>
+  <div class="page-head">
+    <span class="eyebrow">Stage 08</span>
+    <h2>Compliance Report</h2>
+    <p>Generated the same way the Java backend's <span class="mono">JasperReports</span> service would produce it — pulled from the inspection log for a single scan.</p>
+  </div>
+
+  <div class="report-actions no-print">
+    <button class="btn" onclick="window.print()">Print / Save as PDF</button>
+    <a class="btn ghost" href="dashboard.html">← Back to Dashboard</a>
+  </div>
+
+  <div id="reportOut"></div>
+</main>
+
+<script src="assets/js/main.js"></script>
+<script>
+  LMC.mountChrome("report");
+
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("id") || localStorage.getItem("lmc_last_id");
+  const out = document.getElementById("reportOut");
+
+  (async () => {
+    let record = null;
+    try {
+      if (id) record = await LMC.getById(id);
+      if (!record) {
+        const list = await LMC.getInspections();
+        record = list[0] || null;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
+  if (!record) {
+    out.innerHTML = `<div class="panel"><p class="empty-note">No inspection record found. Run a scan on the <a href="upload.html">Upload &amp; Scan</a> page first.</p></div>`;
+  } else {
+    const pass = record.status === "COMPLIANT";
+    const fieldRows = [
+      ["Product", record.product],
+      ["Manufacturer", record.manufacturer || "—"],
+      ["Net Quantity", record.netQty || "—"],
+      ["MRP", record.mrp || "—"],
+      ["Packing Date", record.packingDate ? record.packingDate : `<span class="no">✗ missing</span>`],
+      ["Consumer Care", record.consumerCare ? record.consumerCare : `<span class="no">✗ missing</span>`],
+    ];
+    out.innerHTML = `
+      <div class="doc-mock">
+        <span class="stamp stamp-corner ${pass ? "pass" : "fail"}">${pass ? "✓ COMPLIANT" : "✗ NON-COMPLIANT"}</span>
+        <div class="hd">LEGAL METROLOGY COMPLIANCE REPORT</div>
+        <div class="doc-row"><span>Case ID</span><span>${record.id}</span></div>
+        <div class="doc-row"><span>Inspected</span><span>${LMC.fmtDate(record.date)}</span></div>
+        ${fieldRows.map(([k,v]) => `<div class="doc-row"><span>${k}</span><span>${v}</span></div>`).join("")}
+        <div class="doc-row"><span>Final Status</span><span class="${pass ? "ok" : "no"}">${record.status}</span></div>
+      </div>
+      ${record.violations && record.violations.length ? `
+        <div class="panel" style="margin-top:20px; max-width:560px;">
+          <span class="step-flag">Violations logged</span>
+          ${record.violations.map(v => `<div class="check-row fail"><span class="mark">✗</span>${v}</div>`).join("")}
+        </div>` : ""}
+    `;
+  }
+  })();
+</script>
+</body>
+</html>

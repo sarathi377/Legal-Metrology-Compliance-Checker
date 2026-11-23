@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Legal Metrology Compliance Checker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+  .step-flag{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--brass-gold); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:14px; display:block; font-weight:600;}
+  .filter-pill{font-family:'IBM Plex Mono',monospace; font-size:12px; padding:6px 14px; border-radius:20px; border:1px solid var(--rule); background:var(--paper-card); cursor:pointer; font-weight:500;}
+  .filter-pill.active{background:var(--ink); color:#FFF; border-color:var(--ink);}
+</style>
+</head>
+<body>
+
+<main>
+  <div class="page-head">
+    <span class="eyebrow">Stage 09</span>
+    <h2>Enforcement Dashboard</h2>
+    <p>Real-time analytics and audit trail of all scanned packaged commodities, declaration checks, and EAN-13 barcodes.</p>
+  </div>
+
+  <div class="dash-grid" id="statCards"></div>
+
+  <div class="panel" style="margin-top:24px;">
+    <span class="step-flag">Violation Breakdown Analysis</span>
+    <div id="violationBars"></div>
+  </div>
+
+  <div class="panel" style="margin-top:24px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+      <span class="step-flag" style="margin-bottom:0;">Inspection Audit Log</span>
+      <button class="btn ghost danger-text" id="clearAllBtn" style="font-size:12px; padding:6px 12px; color:var(--stamp-red); border-color:var(--stamp-red);">🗑 Clear All Logs</button>
+    </div>
+    
+    <div class="filter-bar">
+      <input type="text" class="search-input" id="searchInput" placeholder="Search by product name, manufacturer, or case ID...">
+      <div style="display:flex; gap:6px;">
+        <button class="filter-pill active" data-status="ALL">All</button>
+        <button class="filter-pill" data-status="COMPLIANT">Compliant</button>
+        <button class="filter-pill" data-status="NON-COMPLIANT">Non-Compliant</button>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table class="log">
+        <thead>
+          <tr><th>Case ID</th><th>Product</th><th>Barcode EAN-13</th><th>Manufacturer</th><th>Date</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script src="assets/js/main.js"></script>
+<script>
+  LMC.mountChrome("dashboard");
+
+  let inspections = [];
+
+  async function loadInspections() {
+    try {
+      inspections = await LMC.getInspections();
+    } catch (err) {
+      inspections = [];
+      console.error(err);
+      alert("Could not load inspections from the API.");
+    }
+  }
+
+  function updateDashboardMetrics() {
+    const total = inspections.length;
+    const compliant = inspections.filter(r => r.status === "COMPLIANT").length;
+    const nonCompliant = inspections.filter(r => r.status === "NON-COMPLIANT").length;
+    const rate = total ? ((compliant / total) * 100).toFixed(0) : 0;
+
+    document.getElementById("statCards").innerHTML = [
+      ["Total Inspections", total],
+      ["Compliant", compliant],
+      ["Non-Compliant", nonCompliant],
+      ["Compliance Pass Rate", rate + "%"],
+    ].map(([label, n]) => `
+      <div class="dash-card"><div class="n">${n}</div><div class="l">${label}</div></div>
+    `).join("");
+
+    const violationCounts = {};
+    inspections.forEach(r => (r.violations || []).forEach(v => {
+      violationCounts[v] = (violationCounts[v] || 0) + 1;
+    }));
+    const sorted = Object.entries(violationCounts).sort((a,b) => b[1]-a[1]).slice(0,6);
+    const maxCount = sorted.length ? sorted[0][1] : 1;
+
+    document.getElementById("violationBars").innerHTML = sorted.length
+      ? sorted.map(([label, count]) => `
+          <div class="bar-row">
+            <span style="font-weight:500;">${label}</span>
+            <div class="bar-track"><div class="bar-fill" style="width:${(count/maxCount*100).toFixed(0)}%"></div></div>
+            <span class="bar-count">${count}</span>
+          </div>`).join("")
+      : `<p class="empty-note">No violations recorded yet — every scanned label has been fully compliant.</p>`;
+  }
+
+  let activeStatusFilter = "ALL";
+  let searchQuery = "";
+
+  const searchInput = document.getElementById("searchInput");
+  const filterPills = document.querySelectorAll(".filter-pill");
+  const clearAllBtn = document.getElementById("clearAllBtn");
+
+  searchInput.addEventListener("input", e => {
+    searchQuery = e.target.value.toLowerCase();
+    renderLog();
+  });
+
+  filterPills.forEach(btn => btn.addEventListener("click", () => {
+    filterPills.forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    activeStatusFilter = btn.dataset.status;
+    renderLog();
+  }));
+
+  clearAllBtn.addEventListener("click", async () => {
+    if (confirm("Are you sure you want to clear all inspection records from the dashboard?")) {
+      await LMC.clearInspections();
+      await refresh();
+    }
+  });
+
+  async function removeRecord(id) {
+    if (confirm(`Remove record ${id} from inspection log?`)) {
+      await LMC.deleteInspection(id);
+      await refresh();
+    }
+  }
+
+  function renderLog() {
+    const filtered = inspections.filter(r => {
+      const matchesStatus = activeStatusFilter === "ALL" || r.status === activeStatusFilter;
+      const matchesSearch = !searchQuery || 
+        r.id.toLowerCase().includes(searchQuery) ||
+        (r.product || "").toLowerCase().includes(searchQuery) ||
+        (r.manufacturer || "").toLowerCase().includes(searchQuery) ||
+        (r.barcode || "").includes(searchQuery);
+      return matchesStatus && matchesSearch;
+    });
+
+    document.getElementById("logBody").innerHTML = filtered.length ? filtered.map(r => `
+      <tr>
+        <td class="mono" style="font-weight:600;">${r.id}</td>
+        <td style="font-weight:600;">${r.product}</td>
+        <td class="mono" style="font-size:12px; color:var(--ink-soft);">${r.barcode || "—"}</td>
+        <td>${r.manufacturer || "—"}</td>
+        <td style="font-size:12.5px;">${LMC.fmtDate(r.date)}</td>
+        <td><span class="status-pill ${r.status === "COMPLIANT" ? "pass" : "fail"}">${r.status}</span></td>
+        <td style="white-space:nowrap;">
+          <button class="row-link" onclick="openReport('${r.id}')">View</button>
+          <span style="color:var(--rule); margin:0 4px;">|</span>
+          <button class="row-link" style="color:var(--stamp-red);" onclick="removeRecord('${r.id}')">Delete</button>
+        </td>
+      </tr>
+    `).join("") : `<tr><td colspan="7" class="empty-note">No inspection records found.</td></tr>`;
+  }
+
+  async function refresh() {
+    await loadInspections();
+    updateDashboardMetrics();
+    renderLog();
+  }
+
+  refresh();
+
+  function openReport(id){
+    localStorage.setItem("lmc_last_id", id);
+    window.location.href = "report.html?id=" + encodeURIComponent(id);
+  }
+</script>
+</body>
+</html>

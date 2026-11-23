@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="AI-powered Legal Metrology Compliance Checker — automated label inspection, OCR extraction, barcode verification, and compliance stamping for packaged commodities.">
+<title>Legal Metrology Compliance Checker</title>
+<link rel="stylesheet" href="assets/css/style.css">
+<style>
+  .hero-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:36px;padding-top:28px;border-top:1px solid var(--border);}
+  .hero-stat .val{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:var(--accent);letter-spacing:-0.02em;}
+  .hero-stat .lbl{font-size:12px;color:var(--text-muted);margin-top:2px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;}
+  @media(max-width:580px){.hero-stats{grid-template-columns:1fr;}}
+
+  .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:12px;}
+  .feature-card{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;transition:all var(--transition-normal);position:relative;overflow:hidden;}
+  .feature-card:hover{border-color:var(--accent-border);transform:translateY(-3px);box-shadow:var(--shadow-md);}
+  .feature-card .f-icon{font-size:28px;margin-bottom:12px;display:block;}
+  .feature-card h3{font-size:15px;font-weight:700;margin-bottom:6px;}
+  .feature-card p{font-size:13px;color:var(--text-secondary);line-height:1.6;}
+  @media(max-width:768px){.feature-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="file-tab"><span class="dot"></span>CASE FILE — PACKAGED COMMODITY INSPECTION</div>
+  <div class="hero-inner">
+    <h1 class="title">Legal Metrology<br>Compliance <span class="accent">Checker</span></h1>
+    <p class="lede">An AI-assisted inspection pipeline that reads a packaged commodity's label straight off a photograph, checks it against Legal Metrology declaration rules, and stamps a verdict — automatically, every time.</p>
+    <div class="stack-strip">
+      <span class="chip">Java · Spring Boot</span>
+      <span class="chip">OpenCV</span>
+      <span class="chip">Tesseract OCR</span>
+      <span class="chip">MySQL</span>
+      <span class="chip">JasperReports</span>
+      <span class="chip">REST API</span>
+    </div>
+    <div class="cta-row">
+      <a class="btn" href="upload.html">Run a Scan →</a>
+      <a class="btn ghost" href="dashboard.html">View Dashboard</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="val" id="heroTotal">—</div><div class="lbl">Total Scans</div></div>
+      <div class="hero-stat"><div class="val" id="heroRate">—</div><div class="lbl">Pass Rate</div></div>
+      <div class="hero-stat"><div class="val" id="heroViolations">—</div><div class="lbl">Violations Found</div></div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Key Features -->
+  <div class="page-head">
+    <span class="eyebrow">Capabilities</span>
+    <h2>Built for Enforcement Officers</h2>
+    <p>Every feature maps to a real step in the Legal Metrology inspection workflow — from field photography to the final audit trail.</p>
+  </div>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <span class="f-icon">📸</span>
+      <h3>Camera & OCR Scanning</h3>
+      <p>Point your camera at a product label or barcode. Tesseract OCR reads the text; the barcode scanner decodes EAN-13, QR, and more.</p>
+    </div>
+    <div class="feature-card">
+      <span class="f-icon">⚖️</span>
+      <h3>Compliance Rule Engine</h3>
+      <p>Six mandatory declaration checks run automatically — product name, manufacturer, net quantity, MRP, packing date, consumer care.</p>
+    </div>
+    <div class="feature-card">
+      <span class="f-icon">📊</span>
+      <h3>Live Dashboard</h3>
+      <p>Real-time analytics, violation breakdowns, filterable audit logs, and exportable compliance reports for every inspection.</p>
+    </div>
+  </div>
+
+  <!-- Pipeline Section -->
+  <div class="page-head" style="margin-top:56px;">
+    <span class="eyebrow">The Pipeline</span>
+    <h2>From photo to verdict, ten steps</h2>
+    <p>Every uploaded label moves down the same conveyor — each stage hands off exactly one job to the next, so a violation can always be traced back to the step that caught it.</p>
+  </div>
+
+  <div class="pipeline">
+    <div class="stage"><div class="stage-num">01</div>
+      <div class="stage-top"><h3>Officer uploads the product image</h3><span class="stage-tag">Controller</span></div>
+      <p>A field officer photographs the packet label and submits it through the Spring Boot upload endpoint. Try it on the <a href="upload.html">Upload &amp; Scan</a> page.</p>
+    </div>
+    <div class="stage"><div class="stage-num">02</div>
+      <div class="stage-top"><h3>Image preprocessing</h3><span class="stage-tag">OpenCV</span></div>
+      <p>Deskew, denoise, and contrast-correct the photo so a crumpled or glare-lit label still reads cleanly.</p>
+    </div>
+    <div class="stage"><div class="stage-num">03</div>
+      <div class="stage-top"><h3>OCR text extraction</h3><span class="stage-tag">Tesseract</span></div>
+      <p>The cleaned image is converted into raw text — manufacturer, quantity, price, dates, all in one block.</p>
+    </div>
+    <div class="stage"><div class="stage-num">04</div>
+      <div class="stage-top"><h3>Declaration field extraction</h3><span class="stage-tag">Regex</span></div>
+      <p>Pattern matching pulls the mandatory fields out of the raw OCR block into structured values.</p>
+    </div>
+    <div class="stage"><div class="stage-num">05</div>
+      <div class="stage-top"><h3>Compliance rule engine</h3><span class="stage-tag">ComplianceRules.java</span></div>
+      <p>Each extracted field is checked against the Legal Metrology declaration requirements.</p>
+    </div>
+    <div class="stage"><div class="stage-num">06</div>
+      <div class="stage-top"><h3>Verdict stamped</h3><span class="stage-tag">Compliant / Non-compliant</span></div>
+      <p>Every missing or malformed field is logged as a violation and the product is stamped with a final verdict.</p>
+    </div>
+    <div class="stage"><div class="stage-num">07</div>
+      <div class="stage-top"><h3>Inspection record stored</h3><span class="stage-tag">MySQL</span></div>
+      <p>Product details, extracted fields and violations are written to the inspection log.</p>
+    </div>
+    <div class="stage"><div class="stage-num">08</div>
+      <div class="stage-top"><h3>Compliance report generated</h3><span class="stage-tag">JasperReports</span></div>
+      <p>A printable report is produced for the case file — see a <a href="report.html">sample report</a>.</p>
+    </div>
+    <div class="stage"><div class="stage-num">09</div>
+      <div class="stage-top"><h3>Enforcement dashboard updates</h3><span class="stage-tag">Live totals</span></div>
+      <p>Aggregate counts refresh on the <a href="dashboard.html">dashboard</a> so a team can see the day's load at a glance.</p>
+    </div>
+    <div class="stage"><div class="stage-num">10</div>
+      <div class="stage-top"><h3>Case closed — filed for audit</h3><span class="stage-tag">Archive</span></div>
+      <p>The image, extracted text, verdict and report are retained together for later re-verification.</p>
+    </div>
+  </div>
+</main>
+
+<script src="assets/js/main.js"></script>
+<script>
+  LMC.mountChrome("overview");
+
+  // Populate hero stats from localStorage
+  LMC.getInspections().then(list => {
+    const total = list.length;
+    const compliant = list.filter(r => r.status === "COMPLIANT").length;
+    const rate = total ? Math.round((compliant / total) * 100) : 0;
+    const violations = list.reduce((s, r) => s + (r.violations ? r.violations.length : 0), 0);
+    document.getElementById("heroTotal").textContent = total;
+    document.getElementById("heroRate").textContent = rate + "%";
+    document.getElementById("heroViolations").textContent = violations;
+  });
+</script>
+</body>
+</html>

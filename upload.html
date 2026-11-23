@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upload &amp; Scan — Legal Metrology Compliance Checker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:24px;}
+  @media (max-width:840px){.grid2{grid-template-columns:1fr;}}
+  #fileInput{display:none;}
+  .step-flag{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--brass-gold); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:12px; display:block; font-weight:600;}
+  .verdict-box{margin-top:18px; text-align:center; padding:22px; border:2px dashed var(--rule); border-radius:var(--radius-md); background:var(--card);}
+  .hidden{display:none !important;}
+  .preset-row{display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;}
+
+  /* Camera Scanner Styles */
+  .scan-methods{display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;}
+  .btn.camera{
+    background: linear-gradient(135deg, #059669, #047857);
+    border-color: #047857; color:#FFF;
+    position:relative; overflow:hidden;
+  }
+  .btn.camera:hover{
+    background: linear-gradient(135deg, #047857, #065F46);
+    transform:translateY(-1px); box-shadow:var(--shadow-md);
+  }
+  .btn.camera .pulse-ring{
+    position:absolute; top:50%; left:16px; width:8px; height:8px;
+    border-radius:50%; background:#34D399; transform:translate(-50%,-50%);
+    animation: cam-pulse 2s infinite;
+  }
+  @keyframes cam-pulse{
+    0%{box-shadow:0 0 0 0 rgba(52,211,153,0.7);}
+    70%{box-shadow:0 0 0 8px rgba(52,211,153,0);}
+    100%{box-shadow:0 0 0 0 rgba(52,211,153,0);}
+  }
+  .btn.camera.active{
+    background: linear-gradient(135deg, #DC2626, #B91C1C);
+    border-color: #B91C1C;
+  }
+  .btn.camera.active:hover{
+    background: linear-gradient(135deg, #B91C1C, #991B1B);
+  }
+  .btn.camera.active .pulse-ring{background:#FCA5A5; animation-name:cam-pulse-red;}
+  @keyframes cam-pulse-red{
+    0%{box-shadow:0 0 0 0 rgba(252,165,165,0.7);}
+    70%{box-shadow:0 0 0 8px rgba(252,165,165,0);}
+    100%{box-shadow:0 0 0 0 rgba(252,165,165,0);}
+  }
+
+  .camera-panel{
+    margin-top:16px; border:2px solid var(--seal-green);
+    border-radius:var(--radius-lg); overflow:hidden;
+    background:#000; position:relative;
+    animation: cam-slide-in 0.35s cubic-bezier(0.22,1,0.36,1);
+  }
+  @keyframes cam-slide-in{
+    from{opacity:0; max-height:0; transform:translateY(-10px);}
+    to{opacity:1; max-height:600px; transform:translateY(0);}
+  }
+  .camera-panel.closing{
+    animation: cam-slide-out 0.25s ease forwards;
+  }
+  @keyframes cam-slide-out{
+    to{opacity:0; max-height:0; transform:translateY(-10px);}
+  }
+
+  .camera-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 16px; background:linear-gradient(90deg, #065F46, #047857);
+    color:#FFF; font-family:'IBM Plex Mono',monospace; font-size:12px;
+  }
+  .camera-header .status-dot{
+    width:8px; height:8px; border-radius:50%;
+    background:#34D399; display:inline-block; margin-right:8px;
+    box-shadow:0 0 8px rgba(52,211,153,0.6);
+    animation: pulse-dot 1.5s infinite;
+  }
+  #cameraScannerView{
+    width:100%; min-height:260px; position:relative;
+  }
+  #cameraScannerView video{border-radius:0 !important;}
+
+  .camera-footer{
+    padding:12px 16px; background:var(--card);
+    border-top:1px solid var(--rule);
+    font-size:13px; color:var(--ink-soft);
+    display:flex; align-items:center; gap:8px;
+  }
+  .camera-footer .scan-icon{font-size:18px; animation:scan-blink 1s infinite;}
+  @keyframes scan-blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
+  .scan-result-toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:#FFF; padding:14px 24px;
+    border-radius:var(--radius-lg); font-family:'IBM Plex Mono',monospace;
+    font-size:13px; z-index:1000; display:flex; align-items:center; gap:10px;
+    box-shadow:var(--shadow-lg); animation:toast-in 0.3s ease;
+  }
+  @keyframes toast-in{from{opacity:0;transform:translateX(-50%) translateY(20px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+  .scan-result-toast .check{
+    width:24px; height:24px; border-radius:50%;
+    background:var(--seal-green); display:flex; align-items:center;
+    justify-content:center; font-size:14px; flex-shrink:0;
+  }
+</style>
+</head>
+<body>
+
+<main>
+  <div class="page-head">
+    <span class="eyebrow">Stage 01–06</span>
+    <h2>Upload &amp; Scan Label</h2>
+    <p>Field officers photograph a packaged commodity label. Tesseract.js reads the text, the Java backend extracts Legal Metrology declarations, and the rule engine stamps COMPLIANT or NON-COMPLIANT.</p>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <span class="step-flag">01–02 · Upload &amp; preprocess</span>
+      <div class="dropzone" id="dropzone">
+        <div class="icon">📷</div>
+        <strong>Drop a product label image here</strong>
+        <div class="hint">or click to browse · JPG / PNG</div>
+        <input type="file" id="fileInput" accept="image/*">
+      </div>
+
+      <!-- Camera Scanner Button -->
+      <div class="scan-methods">
+        <button class="btn camera" id="cameraBtn">
+          <span class="pulse-ring"></span>
+          <span style="margin-left:14px;">📸 Scan Barcode / QR with Camera</span>
+        </button>
+      </div>
+
+      <!-- Camera Scanner Panel (hidden by default) -->
+      <div class="camera-panel hidden" id="cameraPanel">
+        <div class="camera-header">
+          <span><span class="status-dot"></span>LIVE CAMERA — SCANNING</span>
+          <button class="btn ghost" id="closeCameraBtn" style="padding:4px 12px;font-size:11px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#FFF;">✕ Close</button>
+        </div>
+        <div id="cameraScannerView"></div>
+        <div class="camera-footer">
+          <span class="scan-icon">🔍</span>
+          <span>Point your camera at a <strong>barcode</strong> or <strong>QR code</strong> on the product label</span>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <span class="eyebrow">Instant Sample Presets</span>
+        <div class="preset-row">
+          <button class="btn preset" id="btnJavaBook">📖 Test JAVA E-Book (Compliant)</button>
+          <button class="btn preset" id="btnAbcRice">🌾 Test ABC Rice (Missing Date)</button>
+        </div>
+      </div>
+
+      <label class="eyebrow" for="labelText" style="display:block;margin-top:16px;">Optional: paste label text if the photo is unreadable</label>
+      <textarea id="labelText" rows="4" placeholder="MRP Rs 120&#10;Net Qty 1 kg&#10;Packed Jul 2026&#10;Consumer care 1800-555-221&#10;Manufactured by ABC Foods" style="width:100%;margin-top:8px;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:12px;border:1px solid var(--rule);border-radius:var(--radius-sm);background:var(--paper-card);"></textarea>
+
+      <div class="preview-wrap hidden" id="previewWrap" style="margin-top:20px;">
+        <div class="preview-container">
+          <div class="scanner-beam" id="scannerBeam"></div>
+          <img id="previewImg" alt="Uploaded label preview" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='180' fill='%23faf8f2'><rect width='100%' height='100%'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='monospace' font-size='14' fill='%23B45309'>[Label Photo Loaded]</text></svg>">
+        </div>
+        <div style="flex:1; min-width:200px;">
+          <div class="field-row"><span class="k">File name</span><span class="v" id="fileName">—</span></div>
+          <div class="field-row"><span class="k">Preprocessing</span><span class="v" id="fileStatus">Ready</span></div>
+          <button class="btn" id="scanBtn" style="margin-top:18px; width:100%;">Run OCR &amp; Compliance Check →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="resultsPanel" style="display:none;">
+      <span class="step-flag">03–04 · OCR &amp; Barcode Extracted</span>
+      <div id="fieldsOut"></div>
+      <div id="barcodeOut"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="rulesPanel" style="display:none; margin-top:24px;">
+    <span class="step-flag">05–06 · Compliance Rule Engine &amp; Verdict</span>
+    <div id="checksOut"></div>
+    <div class="verdict-box" id="verdictBox"></div>
+    <div style="margin-top:20px; display:flex; gap:12px; flex-wrap:wrap;">
+      <button class="btn" id="saveBtn">Save to Inspection Log →</button>
+      <button class="btn ghost" id="resetBtn">Scan Another Label</button>
+    </div>
+  </div>
+</main>
+
+<script src="assets/js/main.js"></script>
+<script>
+  LMC.mountChrome("upload");
+
+  const dropzone = document.getElementById("dropzone");
+  const fileInput = document.getElementById("fileInput");
+  const previewWrap = document.getElementById("previewWrap");
+  const previewImg = document.getElementById("previewImg");
+  const fileNameEl = document.getElementById("fileName");
+  const fileStatusEl = document.getElementById("fileStatus");
+  const scanBtn = document.getElementById("scanBtn");
+  const scannerBeam = document.getElementById("scannerBeam");
+  const resultsPanel = document.getElementById("resultsPanel");
+  const rulesPanel = document.getElementById("rulesPanel");
+  const fieldsOut = document.getElementById("fieldsOut");
+  const barcodeOut = document.getElementById("barcodeOut");
+  const checksOut = document.getElementById("checksOut");
+  const verdictBox = document.getElementById("verdictBox");
+  const saveBtn = document.getElementById("saveBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const btnJavaBook = document.getElementById("btnJavaBook");
+  const btnAbcRice = document.getElementById("btnAbcRice");
+  const cameraBtn = document.getElementById("cameraBtn");
+  const cameraPanel = document.getElementById("cameraPanel");
+  const closeCameraBtn = document.getElementById("closeCameraBtn");
+
+  let currentFile = null;
+  let currentPresetKey = null;
+  let currentFields = null;
+  let currentResult = null;
+
+  ["dragenter","dragover"].forEach(evt =>
+    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add("drag"); }));
+  ["dragleave","drop"].forEach(evt =>
+    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove("drag"); }));
+  dropzone.addEventListener("drop", e => handleFile(e.dataTransfer.files[0]));
+  dropzone.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", e => handleFile(e.target.files[0]));
+
+  btnJavaBook.addEventListener("click", () => {
+    currentPresetKey = "java-ebook";
+    currentFile = { name: "java_ebook_label.jpg" };
+    fileNameEl.textContent = "java_ebook_label.jpg (Sample)";
+    fileStatusEl.textContent = "Preset Loaded";
+    previewWrap.classList.remove("hidden");
+    triggerScan();
+  });
+
+  btnAbcRice.addEventListener("click", () => {
+    currentPresetKey = "abc-rice";
+    currentFile = { name: "abc_rice_label.png" };
+    fileNameEl.textContent = "abc_rice_label.png (Sample)";
+    fileStatusEl.textContent = "Preset Loaded";
+    previewWrap.classList.remove("hidden");
+    triggerScan();
+  });
+
+  function handleFile(file){
+    if (!file) return;
+    currentFile = file;
+    currentPresetKey = null;
+    const reader = new FileReader();
+    reader.onload = e => { previewImg.src = e.target.result; };
+    reader.readAsDataURL(file);
+    fileNameEl.textContent = file.name;
+    fileStatusEl.textContent = "Preprocessed (Deskewed)";
+    previewWrap.classList.remove("hidden");
+    resultsPanel.style.display = "none";
+    rulesPanel.style.display = "none";
+  }
+
+  scanBtn.addEventListener("click", triggerScan);
+
+  async function readLabelText() {
+    const pasted = document.getElementById("labelText").value.trim();
+    if (pasted) return pasted;
+    if (!(currentFile instanceof File) || typeof Tesseract === "undefined") return "";
+    fileStatusEl.textContent = "OCR reading label…";
+    const worker = await Tesseract.createWorker("eng");
+    const { data: { text } } = await worker.recognize(currentFile);
+    await worker.terminate();
+    return text || "";
+  }
+
+  function triggerScan() {
+    scannerBeam.classList.add("active");
+    scanBtn.disabled = true;
+    scanBtn.textContent = "Scanning OCR...";
+
+    readLabelText()
+      .then(rawText => LMC.scan({ file: currentFile, presetKey: currentPresetKey, rawText }))
+      .then(data => {
+        currentFields = data.fields;
+        currentResult = data.compliance;
+        renderFields(currentFields);
+        renderChecks(currentResult);
+        resultsPanel.style.display = "block";
+        rulesPanel.style.display = "block";
+        rulesPanel.scrollIntoView({behavior:"smooth", block:"nearest"});
+      })
+      .catch(err => {
+        alert("Scan failed: " + err.message);
+      })
+      .finally(() => {
+        scannerBeam.classList.remove("active");
+        scanBtn.disabled = false;
+        scanBtn.textContent = "Run OCR & Compliance Check →";
+        if (fileStatusEl.textContent.indexOf("OCR") === 0) fileStatusEl.textContent = "Preprocessed";
+      });
+  }
+
+  function fieldInput(key, label, value) {
+    return `<div class="field-row"><span class="k">${label}</span>
+      <input class="v" data-field="${key}" value="${(value || "").replace(/"/g, "&quot;")}"
+        style="border:0;background:transparent;font:inherit;width:55%;text-align:right;"></div>`;
+  }
+
+  function readEditedFields() {
+    const out = {};
+    fieldsOut.querySelectorAll("[data-field]").forEach(el => { out[el.dataset.field] = el.value.trim(); });
+    return out;
+  }
+
+  function renderFields(f){
+    fieldsOut.innerHTML = [
+      fieldInput("product", "Product Name", f.product),
+      fieldInput("manufacturer", "Manufacturer", f.manufacturer),
+      fieldInput("netQty", "Net Quantity", f.netQty),
+      fieldInput("mrp", "MRP", f.mrp),
+      fieldInput("packingDate", "Packing Date", f.packingDate),
+      fieldInput("consumerCare", "Consumer Care", f.consumerCare),
+      fieldInput("barcode", "Barcode EAN-13", f.barcode),
+    ].join("");
+    barcodeOut.innerHTML = LMC.generateBarcodeSVG(f.barcode);
+    fieldsOut.querySelectorAll("[data-field]").forEach(el => {
+      el.addEventListener("change", () => {
+        currentFields = readEditedFields();
+        LMC.checkCompliance(currentFields).then(result => {
+          currentResult = result;
+          renderChecks(result);
+          barcodeOut.innerHTML = LMC.generateBarcodeSVG(currentFields.barcode);
+        });
+      });
+    });
+  }
+
+  function renderChecks(result){
+    checksOut.innerHTML = result.checks.map(c =>
+      `<div class="check-row ${c.pass ? "pass" : "fail"}"><span class="mark">${c.pass ? "✓" : "✗"}</span>${c.label}</div>`
+    ).join("");
+    const pass = result.status === "COMPLIANT";
+    verdictBox.innerHTML = `<span class="stamp ${pass ? "pass" : "fail"}">${pass ? "✓ COMPLIANT" : "✗ NON-COMPLIANT"}</span>`
+      + (result.violations.length ? `<div style="margin-top:12px; font-size:13.5px; color:var(--ink-soft); font-weight:500;">${result.violations.join(" · ")}</div>` : "");
+  }
+
+  saveBtn.addEventListener("click", () => {
+    currentFields = readEditedFields();
+    if (!currentFields) return;
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving...";
+    LMC.addInspection(currentFields)
+      .then(record => {
+        saveBtn.textContent = `Saved as ${record.id} ✓`;
+      })
+      .catch(err => {
+        alert("Save failed: " + err.message);
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save to Inspection Log →";
+      });
+  });
+
+  resetBtn.addEventListener("click", () => {
+    currentFile = null; currentPresetKey = null; currentFields = null; currentResult = null;
+    previewWrap.classList.add("hidden");
+    resultsPanel.style.display = "none";
+    rulesPanel.style.display = "none";
+    fileInput.value = "";
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save to Inspection Log →";
+  });
+
+  /* === Camera Scanner Logic === */
+  cameraBtn.addEventListener("click", async () => {
+    if (LMC.isCameraActive()) {
+      closeCamera();
+      return;
+    }
+    openCamera();
+  });
+
+  closeCameraBtn.addEventListener("click", closeCamera);
+
+  async function openCamera() {
+    cameraPanel.classList.remove("hidden", "closing");
+    cameraBtn.classList.add("active");
+    cameraBtn.querySelector("span:last-child").textContent = "⏹ Stop Camera Scanner";
+
+    try {
+      await LMC.initCameraScanner("cameraScannerView", onBarcodeScan);
+    } catch (err) {
+      console.error("Camera error:", err);
+      cameraPanel.classList.add("hidden");
+      cameraBtn.classList.remove("active");
+      cameraBtn.querySelector("span:last-child").textContent = "📸 Scan Barcode / QR with Camera";
+
+      if (err.message && err.message.includes("NotAllowedError")) {
+        alert("Camera access was denied. Please allow camera access in your browser settings and try again.");
+      } else if (err.message && err.message.includes("NotFoundError")) {
+        alert("No camera found on this device. Please connect a camera and try again.");
+      } else {
+        alert("Could not start camera: " + (err.message || err));
+      }
+    }
+  }
+
+  function closeCamera() {
+    cameraPanel.classList.add("closing");
+    cameraBtn.classList.remove("active");
+    cameraBtn.querySelector("span:last-child").textContent = "📸 Scan Barcode / QR with Camera";
+    LMC.stopCameraScanner();
+    setTimeout(() => {
+      cameraPanel.classList.add("hidden");
+      cameraPanel.classList.remove("closing");
+    }, 250);
+  }
+
+  function onBarcodeScan(decodedText, decodedResult) {
+    // Close camera
+    closeCamera();
+
+    // Show toast notification
+    showScanToast(decodedText);
+
+    // Auto-fill the barcode field if we have results showing
+    const barcodeInput = fieldsOut.querySelector('[data-field="barcode"]');
+    if (barcodeInput) {
+      barcodeInput.value = decodedText;
+      barcodeInput.dispatchEvent(new Event("change"));
+    }
+
+    // Also put it in the label text area for context
+    const labelText = document.getElementById("labelText");
+    const existing = labelText.value.trim();
+    if (existing) {
+      labelText.value = existing + "\n" + decodedText;
+    } else {
+      labelText.value = decodedText;
+    }
+
+    // If no file has been loaded yet, set up a virtual file and trigger scan
+    if (!currentFile && !currentFields) {
+      currentFile = { name: "camera_scan.jpg" };
+      currentPresetKey = null;
+      fileNameEl.textContent = "camera_scan.jpg (Camera)";
+      fileStatusEl.textContent = "Barcode Scanned: " + decodedText;
+      previewWrap.classList.remove("hidden");
+      triggerScan();
+    }
+  }
+
+  function showScanToast(code) {
+    // Remove existing toast if any
+    const existing = document.querySelector(".scan-result-toast");
+    if (existing) existing.remove();
+
+    const toast = document.createElement("div");
+    toast.className = "scan-result-toast";
+    toast.innerHTML = `<span class="check">✓</span> Scanned: <strong>${code}</strong>`;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+      toast.style.opacity = "0";
+      toast.style.transform = "translateX(-50%) translateY(20px)";
+      setTimeout(() => toast.remove(), 300);
+    }, 3500);
+  }
+</script>
+</body>
+</html>
